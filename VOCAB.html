@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDS English Vocab Mastery Quiz</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card-bg: #1e293b;
+    --accent: #38bdf8;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --correct-bg: #064e3b;
+    --correct-border: #10b981;
+    --wrong-bg: #7f1d1d;
+    --wrong-border: #ef4444;
+    --missed-border: #f59e0b;
+    --option-bg: #334155;
+    --option-hover: #475569;
+    --syn-color: #34d399;
+    --ant-color: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  body { background-color: var(--bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+  .quiz-card { background: var(--card-bg); width: 100%; max-width: 720px; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px; }
+  .progress { font-size: 0.9rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .score { font-size: 0.9rem; color: var(--text-muted); }
+  .question-box { margin-bottom: 24px; }
+  .word-title { font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .pos-tag { display: inline-block; font-size: 0.8rem; background: #0284c7; color: #fff; padding: 2px 8px; border-radius: 4px; margin-bottom: 12px; }
+  .prompt-text { font-size: 1.05rem; color: var(--text-muted); margin-bottom: 16px; }
+  .options-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .option-label { display: flex; align-items: center; padding: 14px 18px; border-radius: 8px; background: var(--option-bg); cursor: pointer; transition: all 0.2s; border: 2px solid transparent; user-select: none; }
+  .option-label:hover { background: var(--option-hover); }
+  .option-label input { margin-right: 14px; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  .option-text { font-size: 1rem; flex: 1; }
+  
+  /* State Styles */
+  .option-label.selected { border-color: var(--accent); background: #1e3a5f; }
+  .option-label.correct { background: var(--correct-bg) !important; border-color: var(--correct-border) !important; }
+  .option-label.wrong { background: var(--wrong-bg) !important; border-color: var(--wrong-border) !important; }
+  .option-label.missed { border-color: var(--missed-border) !important; }
+
+  /* Explanation / Active Recall Box */
+  .explanation-box { background: #0b132b; border-left: 4px solid var(--accent); padding: 18px; border-radius: 0 8px 8px 0; margin-bottom: 24px; display: none; }
+  .explanation-title { font-weight: 700; color: var(--accent); margin-bottom: 10px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .recall-grid { display: flex; flex-direction: column; gap: 8px; font-size: 0.92rem; line-height: 1.5; }
+  .recall-row { display: flex; flex-direction: column; }
+  .recall-label { font-weight: 600; color: #cbd5e1; }
+  .tag-syn { color: var(--syn-color); font-weight: 600; }
+  .tag-ant { color: var(--ant-color); font-weight: 600; }
+
+  .actions { display: flex; justify-content: flex-end; gap: 12px; }
+  button { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+  .btn-submit { background: var(--accent); color: #0f172a; }
+  .btn-submit:hover { opacity: 0.9; }
+  .btn-next { background: #10b981; color: #fff; display: none; }
+  .btn-next:hover { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<div class="quiz-card" id="quizCard">
+  <div class="header">
+    <span class="progress" id="progressText">Question 1 of 8</span>
+    <span class="score" id="scoreText">Score: 0</span>
+  </div>
+
+  <div class="question-box">
+    <div class="word-title" id="targetWord">Lachrymose</div>
+    <span class="pos-tag" id="posTag">Adjective</span>
+    <div class="prompt-text" id="promptText">Select all valid synonyms (2 or more may apply):</div>
+  </div>
+
+  <div class="options-grid" id="optionsContainer"></div>
+
+  <div class="explanation-box" id="explanationBox">
+    <div class="explanation-title">Active Recall & CDS High-Yield Breakdown</div>
+    <div class="recall-grid" id="explanationContent"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-submit" id="btnSubmit" onclick="checkAnswer()">Submit</button>
+    <button class="btn-next" id="btnNext" onclick="nextQuestion()">Next Question &rarr;</button>
+  </div>
+</div>
+
+<script>
+const rawQuizData = [
+  {
+    word: "Lachrymose",
+    pos: "Adjective",
+    prompt: "Select ALL valid synonyms from your notes & CDS patterns:",
+    options: [
+      { text: "Maudlin / Sorrowful / Weepy", correct: true },
+      { text: "Lugubrious / Dolorous / Ululation", correct: true },
+      { text: "Wail / Bewail / Mournful", correct: true },
+      { text: "Adroit / Dexterous / Callow", correct: false }
+    ],
+    simpleMeaning: "Given to weeping, tearful, or excessively mournful (Sad hona / रोना-धोना).",
+    synonyms: "Maudlin, Lugubrious, Dolorous, Lachrymal, Mournful, Sombre, Woeful, Plaintive.",
+    antonyms: "Cheerful, Blithe, Sanguine, Jocund, Buoyant, Exuberant, Jovial."
+  },
+  {
+    word: "Manacles",
+    pos: "Noun / Verb",
+    prompt: "Select ALL valid synonyms & confinement terms:",
+    options: [
+      { text: "Fetters / Shackles / Chains", correct: true },
+      { text: "Handcuffs / Confinement / Bondage", correct: true },
+      { text: "Impound / Confiscate / Incarcerate", correct: true },
+      { text: "Charlatan / Impostor / Scoundrel", correct: false }
+    ],
+    simpleMeaning: "Chains or restraints used on hands/feet; to restrict freedom (बँधी / Confine).",
+    synonyms: "Fetters, Shackles, Trundles, Trammels, Handcuffs, Confinement, Enchain.",
+    antonyms: "Liberate, Emancipate, Unfetter, Disenthrall, Free, Release."
+  },
+  {
+    word: "Mettle",
+    pos: "Noun",
+    prompt: "Select ALL terms that match Mettle:",
+    options: [
+      { text: "Strength of spirit & Mental resilience", correct: true },
+      { text: "Courage, Fortitude & Valour", correct: true },
+      { text: "Audacity, Grit & Enthusiasm", correct: true },
+      { text: "Interference, Intrusion & Meddling", correct: false }
+    ],
+    simpleMeaning: "A person's ability to cope well with difficulties; inner stamina & fighting spirit.",
+    synonyms: "Fortitude, Tenacity, Resilience, Valour, Pluck, Grit, Audacity.",
+    antonyms: "Cowardice, Timidity, Pusillanimity, Cravenness, Feebleness."
+  },
+  {
+    word: "Meddle",
+    pos: "Verb",
+    prompt: "Select ALL accurate meanings and associations for Meddle:",
+    options: [
+      { text: "Interfere, Intervene & Interrupt", correct: true },
+      { text: "Intrude, Infringe & Snoop", correct: true },
+      { text: "Tenacity & Relentless Persistence", correct: false },
+      { text: "Adroitness & Dexterity", correct: false }
+    ],
+    simpleMeaning: "To interfere in something that is not one's concern (दखल देना / हस्तक्षेप करना).",
+    synonyms: "Interfere, Intervene, Intrude, Tamper, Infringe, Snoop, Butt in.",
+    antonyms: "Refrain, Abstain, Overlook, Disregard, Ignore, Leave alone."
+  },
+  {
+    word: "Tenacity",
+    pos: "Noun",
+    prompt: "Select ALL terms representing Tenacity:",
+    options: [
+      { text: "Perseverance & Relentless determination", correct: true },
+      { text: "Grit, Obstinacy & Persistence", correct: true },
+      { text: "Firm hold / Retentiveness", correct: true },
+      { text: "Frailty, Vacillation & Hesitation", correct: false }
+    ],
+    simpleMeaning: "The quality of being determined or holding fast (दृढ़ता / हठ).",
+    synonyms: "Perseverance, Persistence, Pertinacity, Resolution, Doggedness, Grit.",
+    antonyms: "Vacillation, Irresolution, Weakness, Hesitation, Surrender."
+  },
+  {
+    word: "Masquerade",
+    pos: "Verb / Noun",
+    prompt: "Select ALL words related to pretense and deceit:",
+    options: [
+      { text: "Imitate / Emulate / Disguise", correct: true },
+      { text: "Pretext / Dupe / Dodge / Woodwink (Hoodwink)", correct: true },
+      { text: "Charlatan / Hypocrite (ढोंगी)", correct: true },
+      { text: "Lugubrious / Plaintive / Tearful", correct: false }
+    ],
+    simpleMeaning: "To pretend to be someone/something else; a false show (दिखावा / ढोंग करना).",
+    synonyms: "Disguise, Impersonate, Camouflage, Dissimulate, Feign, Hoodwink, Charlatanism.",
+    antonyms: "Unmask, Reveal, Disclose, Authenticate, Expose."
+  },
+  {
+    word: "Morbid",
+    pos: "Adjective",
+    prompt: "Select ALL valid synonyms for Morbid:",
+    options: [
+      { text: "Gruesome & Grotesque", correct: true },
+      { text: "Disgusting, Hideous & Macabre", correct: true },
+      { text: "Unwholesome & Ghastly", correct: true },
+      { text: "Salubrious, Wholesome & Healthy", correct: false }
+    ],
+    simpleMeaning: "Unhealthy, gruesome, or related to death/disease (भयानक / विकृत / घिनौना).",
+    synonyms: "Macabre, Ghastly, Gruesome, Grotesque, Hideous, Unwholesome, Appalling.",
+    antonyms: "Wholesome, Salubrious, Cheerful, Healthy, Pleasant, Sane."
+  },
+  {
+    word: "Knave",
+    pos: "Noun",
+    prompt: "Select ALL terms associated with Knave / Swindle:",
+    options: [
+      { text: "Dishonest, Scoundrel & Unscrupulous", correct: true },
+      { text: "Fraudster, Swindler, Rogue (Villain type)", correct: true },
+      { text: "Swindle: Cheat, dupe, dodge, defraud", correct: true },
+      { text: "Dwindle: Increase and multiply rapidly", correct: false }
+    ],
+    simpleMeaning: "Knave = a deceitful, untrustworthy villain (धूर्त / बदमाश). *Dwindle = to decrease.*",
+    synonyms: "Scoundrel, Rogue, Rascal, Charlatan, Swindler, Reprobate, Blackguard.",
+    antonyms: "Paragon, Saint, Upright person, Philanthropist, Hero."
+  },
+  {
+    word: "Knack",
+    pos: "Noun",
+    prompt: "Select ALL accurate terms for Knack:",
+    options: [
+      { text: "Skillful, Adroit & Dexterity", correct: true },
+      { text: "Aptitude, Talent & Expertise", correct: true },
+      { text: "Ingenuity & Proficiency", correct: true },
+      { text: "Callow, Ineptitude & Clumsiness", correct: false }
+    ],
+    simpleMeaning: "An acquired or natural skill at performing a task (कौशल / हुनर).",
+    synonyms: "Adroitness, Dexterity, Aptitude, Flair, Ingenuity, Prowess, Deftness.",
+    antonyms: "Ineptitude, Clumsiness, Incompetence, Gaucheness, Inability."
+  },
+  {
+    word: "Naive",
+    pos: "Adjective",
+    prompt: "Select ALL valid synonyms for Naive:",
+    options: [
+      { text: "Noob, Beginner & Inexperienced", correct: true },
+      { text: "Jejune, Immature & Callow", correct: true },
+      { text: "Ingenuous, Credulous & Gullible", correct: true },
+      { text: "Astute, Shrewd & Sagacious", correct: false }
+    ],
+    simpleMeaning: "Lacking worldly wisdom, experience, or judgment (अनुभवहीन / सीधा-सादा).",
+    synonyms: "Callow, Jejune, Ingenuous, Gullible, Novice, Greenhorn, Credulous.",
+    antonyms: "Sophisticated, Astute, Shrewd, Experienced, Worldly, Sagacious."
+  }
+];
+
+// Utility: Fisher-Yates shuffle
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+let activeQuizData = [];
+let currentIndex = 0;
+let score = 0;
+
+function initQuiz() {
+  // Randomize questions order
+  const shuffledQuestions = shuffleArray(rawQuizData);
+  
+  // Randomize options within each question
+  activeQuizData = shuffledQuestions.map(q => ({
+    ...q,
+    options: shuffleArray(q.options)
+  }));
+
+  currentIndex = 0;
+  score = 0;
+  loadQuestion();
+}
+
+function loadQuestion() {
+  const q = activeQuizData[currentIndex];
+  document.getElementById('progressText').innerText = `Question ${currentIndex + 1} of ${activeQuizData.length}`;
+  document.getElementById('scoreText').innerText = `Score: ${score}`;
+  document.getElementById('targetWord').innerText = q.word;
+  document.getElementById('posTag').innerText = q.pos;
+  document.getElementById('promptText').innerText = q.prompt;
+  
+  const container = document.getElementById('optionsContainer');
+  container.innerHTML = '';
+
+  q.options.forEach((opt, idx) => {
+    const label = document.createElement('label');
+    label.className = 'option-label';
+    label.id = `opt-label-${idx}`;
+    label.innerHTML = `
+      <input type="checkbox" id="opt-${idx}" value="${idx}" onchange="toggleSelect(${idx})">
+      <span class="option-text">${opt.text}</span>
+    `;
+    container.appendChild(label);
+  });
+
+  document.getElementById('explanationBox').style.display = 'none';
+  document.getElementById('btnSubmit').style.display = 'inline-block';
+  document.getElementById('btnNext').style.display = 'none';
+}
+
+function toggleSelect(idx) {
+  const label = document.getElementById(`opt-label-${idx}`);
+  const input = document.getElementById(`opt-${idx}`);
+  if (input.checked) {
+    label.classList.add('selected');
+  } else {
+    label.classList.remove('selected');
+  }
+}
+
+function checkAnswer() {
+  const q = activeQuizData[currentIndex];
+  let allCorrect = true;
+
+  q.options.forEach((opt, idx) => {
+    const input = document.getElementById(`opt-${idx}`);
+    const label = document.getElementById(`opt-label-${idx}`);
+    input.disabled = true;
+
+    if (opt.correct) {
+      if (input.checked) {
+        label.classList.add('correct');
+      } else {
+        label.classList.add('missed');
+        allCorrect = false;
+      }
+    } else {
+      if (input.checked) {
+        label.classList.add('wrong');
+        allCorrect = false;
+      }
+    }
+  });
+
+  if (allCorrect) score++;
+
+  const expBox = document.getElementById('explanationBox');
+  document.getElementById('explanationContent').innerHTML = `
+    <div class="recall-row"><span class="recall-label">💡 Meaning:</span> <span>${q.simpleMeaning}</span></div>
+    <div class="recall-row"><span class="recall-label tag-syn">✔ Key CDS Synonyms:</span> <span>${q.synonyms}</span></div>
+    <div class="recall-row"><span class="recall-label tag-ant">✖ Key CDS Antonyms:</span> <span>${q.antonyms}</span></div>
+  `;
+  expBox.style.display = 'block';
+
+  document.getElementById('btnSubmit').style.display = 'none';
+  document.getElementById('btnNext').style.display = 'inline-block';
+  document.getElementById('scoreText').innerText = `Score: ${score}`;
+}
+
+function nextQuestion() {
+  currentIndex++;
+  if (currentIndex < activeQuizData.length) {
+    loadQuestion();
+  } else {
+    showFinalResults();
+  }
+}
+
+function showFinalResults() {
+  const card = document.getElementById('quizCard');
+  card.innerHTML = `
+    <div style="text-align: center; padding: 20px 0;">
+      <h2 style="font-size: 2.2rem; margin-bottom: 12px; color: #fff;">Quiz Completed!</h2>
+      <p style="font-size: 1.2rem; color: var(--text-muted); margin-bottom: 24px;">Your Final Score: <strong style="color: var(--accent);">${score} / ${activeQuizData.length}</strong></p>
+      <button class="btn-submit" onclick="initQuiz()">Restart Quiz (Shuffle Again)</button>
+    </div>
+  `;
+}
+
+// Initial Run
+initQuiz();
+</script>
+</body>
+</html>
