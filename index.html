@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -603,6 +603,358 @@ function showFinalResults() {
 
 // Initial Run
 initQuiz();
+</script>
+</body>
+</html> -->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDS Vocab Dynamic Recall Engine</title>
+<style>
+  :root {
+    --bg: #0b0f19;
+    --card-bg: #151e32;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.2);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --correct-bg: #064e3b;
+    --correct-border: #10b981;
+    --wrong-bg: #7f1d1d;
+    --wrong-border: #ef4444;
+    --missed-border: #f59e0b;
+    --option-bg: #1e293b;
+    --option-hover: #2d3b55;
+    --syn-color: #34d399;
+    --ant-color: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  body { background-color: var(--bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+  
+  .quiz-card { background: var(--card-bg); width: 100%; max-width: 740px; border-radius: 18px; padding: 32px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7); border: 1px solid #1e293b; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px; }
+  .progress { font-size: 0.9rem; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .score { font-size: 0.95rem; color: #cbd5e1; font-weight: 600; }
+  
+  .question-box { margin-bottom: 24px; }
+  .target-label { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 1.5px; margin-bottom: 4px; }
+  .word-title { font-size: 2.2rem; font-weight: 800; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .prompt-badge { display: inline-block; font-size: 0.85rem; font-weight: 600; background: #0369a1; color: #f0f9ff; padding: 4px 10px; border-radius: 6px; margin-bottom: 14px; }
+  .prompt-text { font-size: 1.05rem; color: var(--text-muted); }
+
+  .options-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .option-label { display: flex; align-items: center; padding: 16px 20px; border-radius: 10px; background: var(--option-bg); cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); border: 2px solid transparent; user-select: none; }
+  .option-label:hover { background: var(--option-hover); transform: translateY(-1px); }
+  .option-label input { margin-right: 16px; width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  .option-text { font-size: 1.05rem; font-weight: 500; flex: 1; }
+  
+  /* State Styles */
+  .option-label.selected { border-color: var(--accent); background: #0c4a6e; box-shadow: 0 0 12px var(--accent-glow); }
+  .option-label.correct { background: var(--correct-bg) !important; border-color: var(--correct-border) !important; color: #d1fae5; }
+  .option-label.wrong { background: var(--wrong-bg) !important; border-color: var(--wrong-border) !important; color: #fee2e2; }
+  .option-label.missed { border-color: var(--missed-border) !important; background: rgba(245, 158, 11, 0.1) !important; }
+
+  /* Recall Breakdown */
+  .explanation-box { background: #080c14; border-left: 4px solid var(--accent); padding: 20px; border-radius: 0 10px 10px 0; margin-bottom: 24px; display: none; }
+  .explanation-title { font-weight: 700; color: var(--accent); margin-bottom: 12px; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .recall-grid { display: flex; flex-direction: column; gap: 10px; font-size: 0.95rem; line-height: 1.6; }
+  .recall-row { display: flex; flex-direction: column; }
+  .recall-label { font-weight: 600; color: #e2e8f0; }
+  .tag-syn { color: var(--syn-color); }
+  .tag-ant { color: var(--ant-color); }
+
+  .actions { display: flex; justify-content: space-between; align-items: center; }
+  button { padding: 13px 26px; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+  .btn-submit { background: var(--accent); color: #0b0f19; margin-left: auto; }
+  .btn-submit:hover { opacity: 0.9; }
+  .btn-next { background: #10b981; color: #fff; margin-left: auto; display: none; }
+  .btn-next:hover { opacity: 0.9; }
+  .btn-shuffle { background: #334155; color: #cbd5e1; font-size: 0.9rem; padding: 10px 18px; }
+  .btn-shuffle:hover { background: #475569; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="quiz-card" id="quizCard">
+  <div class="header">
+    <span class="progress" id="progressText">Question 1</span>
+    <span class="score" id="scoreText">Score: 0</span>
+  </div>
+
+  <div class="question-box">
+    <div class="target-label">Target Vocab Pivot</div>
+    <div class="word-title" id="targetWord">---</div>
+    <span class="prompt-badge" id="promptBadge">Synonym Discovery</span>
+    <div class="prompt-text" id="promptText">Select ALL valid associated synonyms / related terms:</div>
+  </div>
+
+  <div class="options-grid" id="optionsContainer"></div>
+
+  <div class="explanation-box" id="explanationBox">
+    <div class="explanation-title">Active Recall & Context Breakdown</div>
+    <div class="recall-grid" id="explanationContent"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-shuffle" onclick="restartQuiz()">🔀 Reshuffle All</button>
+    <button class="btn-submit" id="btnSubmit" onclick="checkAnswer()">Submit</button>
+    <button class="btn-next" id="btnNext" onclick="nextQuestion()">Next Question &rarr;</button>
+  </div>
+</div>
+
+<script>
+// Master Semantic Clusters (Words rotate between Question & Options dynamically)
+const vocabClusters = [
+  {
+    clusterName: "Defense, Cover & Justification",
+    hindiCue: "अन्यत्र उपस्थित, बहाना या बचाव",
+    words: ["Alibi", "Vindication", "Shield", "Protection", "Excuse", "Defense Plea", "Justification"],
+    antonyms: ["Accusation", "Incrimination", "Inculpation", "Implication"],
+    note: "Evidence or defense that proves innocence or protects from blame."
+  },
+  {
+    clusterName: "Abolish, Cancel & Annul",
+    hindiCue: "खारिज कर देना / रद्द करना",
+    words: ["Abrogate", "Repeal", "Rescind", "Revoke", "Quash", "Nullify", "Repudiate", "Annul"],
+    antonyms: ["Enact", "Ratify", "Validate", "Sanction", "Establish", "Institute"],
+    note: "To officially cancel, abolish or revoke a law/order (e.g., Article 370)."
+  },
+  {
+    clusterName: "Amass, Accumulate & Aggregate",
+    hindiCue: "जमा होना / इकट्ठा करना",
+    words: ["Accrue", "Accumulate", "Amass", "Hoard", "Muster", "Collate", "Pile up", "Lay up"],
+    antonyms: ["Dwindle", "Dissipate", "Disperse", "Deplete", "Diminish"],
+    note: "To accumulate or grow gradually over time (Accrue interest/points). Horde = crowd."
+  },
+  {
+    clusterName: "Obstinate, Stubborn & Inflexible",
+    hindiCue: "ज़िद्दी / हठी / अटूट",
+    words: ["Adamant", "Obstinate", "Inexorable", "Intransigent", "Pig-headed", "Obdurate", "Dogged"],
+    antonyms: ["Pliant", "Yielding", "Flexible", "Tractable", "Compliant"],
+    note: "Unshakable, stubborn, or refusing to alter a position."
+  },
+  {
+    clusterName: "Flattery, Fawning & Sycophancy",
+    hindiCue: "चापलूसी / झूठी प्रशंसा",
+    words: ["Adulation", "Sycophancy", "Blandishment", "Obsequiousness", "Flattery", "Cajolery", "Inveigle"],
+    antonyms: ["Invective", "Vilification", "Denunciation", "Opprobrium", "Criticism"],
+    note: "Excessive flattery/admiration. Note: Inveigh = criticize strongly."
+  },
+  {
+    clusterName: "Mournful, Gloomy & Tearful",
+    hindiCue: "Sad hona / रोना-धोना / उदास",
+    words: ["Lachrymose", "Maudlin", "Lugubrious", "Dolorous", "Sorrowful", "Mournful", "Weepy", "Ululation"],
+    antonyms: ["Cheerful", "Jocund", "Sanguine", "Buoyant", "Exuberant", "Jovial"],
+    note: "Expressing sorrow or tending to weep easily."
+  },
+  {
+    clusterName: "Restraints, Fetters & Confinement",
+    hindiCue: "बँधी / बेड़ियां / बंधन",
+    words: ["Manacles", "Fetters", "Shackles", "Handcuffs", "Bondage", "Confinement", "Enchain"],
+    antonyms: ["Emancipate", "Liberate", "Unfetter", "Disenthrall", "Release"],
+    note: "Physical restraints on freedom or hands/feet."
+  },
+  {
+    clusterName: "Courage, Resilience & Spirit",
+    hindiCue: "साहस / मानसिक शक्ति / हिम्मत",
+    words: ["Mettle", "Fortitude", "Valour", "Tenacity", "Audacity", "Pluck", "Grit"],
+    antonyms: ["Pusillanimity", "Cowardice", "Timidity", "Cravenness", "Feebleness"],
+    note: "Coping with difficulty with spirit, courage, and resilience."
+  },
+  {
+    clusterName: "Skill, Dexterity & Mastery",
+    hindiCue: "कौशल / हुनर / दक्षता",
+    words: ["Knack", "Adroitness", "Dexterity", "Aptitude", "Flair", "Ingenuity", "Deftness"],
+    antonyms: ["Ineptitude", "Clumsiness", "Gaucheness", "Incompetence"],
+    note: "A special talent or natural skill for doing something."
+  },
+  {
+    clusterName: "Inexperienced, Callow & Immature",
+    hindiCue: "अनुभवहीन / सीधा-सादा / नौसिखिया",
+    words: ["Naive", "Callow", "Jejune", "Ingenuous", "Credulous", "Gullible", "Greenhorn"],
+    antonyms: ["Astute", "Shrewd", "Sagacious", "Sophisticated", "Worldly"],
+    note: "Lacking experience, sophisticated knowledge, or judgment."
+  },
+  {
+    clusterName: "Dishonest, Scoundrel & Deceiver",
+    hindiCue: "धूर्त / ठग / बदमाश",
+    words: ["Knave", "Swindler", "Charlatan", "Scoundrel", "Rogue", "Dupe master", "Hypocrite"],
+    antonyms: ["Paragon", "Saint", "Philanthropist", "Upright person"],
+    note: "A dishonest, unscrupulous villain. Swindle = cheat, Dwindle = decrease."
+  },
+  {
+    clusterName: "Adversary, Rival & Opponent",
+    hindiCue: "विरोधी / प्रतिद्वंद्वी",
+    words: ["Antagonist", "Opponent", "Adversary", "Nemesis", "Rival", "Foe", "Combatant"],
+    antonyms: ["Protagonist", "Ally", "Supporter", "Collaborator", "Champion"],
+    note: "A person who opposes or competes against another."
+  }
+];
+
+// Fisher-Yates array shuffling
+function shuffle(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Generate dynamic cross-pivot questions
+function generateDynamicQuiz() {
+  const shuffledClusters = shuffle(vocabClusters);
+  const questions = [];
+
+  shuffledClusters.forEach((cluster, cIndex) => {
+    // 1. Pick a random word from this cluster as the target question
+    const shuffledWords = shuffle(cluster.words);
+    const target = shuffledWords[0];
+    
+    // 2. Pick 2-3 other words from the same cluster as CORRECT synonyms
+    const correctSynonyms = shuffledWords.slice(1, 3 + Math.floor(Math.random() * 2));
+    
+    // 3. Pick 1-2 distractors from OTHER clusters or Antonynms
+    const otherClusters = vocabClusters.filter((_, idx) => idx !== cIndex);
+    const randomOtherCluster = otherClusters[Math.floor(Math.random() * otherClusters.length)];
+    const distractorWord = shuffle(randomOtherCluster.words)[0];
+    const distractorAntonym = shuffle(cluster.antonyms)[0];
+
+    const options = [
+      ...correctSynonyms.map(word => ({ text: word, correct: true })),
+      { text: distractorWord, correct: false },
+      { text: distractorAntonym, correct: false }
+    ];
+
+    questions.push({
+      targetWord: target,
+      clusterName: cluster.clusterName,
+      hindiCue: cluster.hindiCue,
+      note: cluster.note,
+      synonyms: cluster.words.filter(w => w !== target).join(", "),
+      antonyms: cluster.antonyms.join(", "),
+      options: shuffle(options)
+    });
+  });
+
+  return questions;
+}
+
+let activeQuiz = [];
+let currentIndex = 0;
+let score = 0;
+
+function restartQuiz() {
+  activeQuiz = generateDynamicQuiz();
+  currentIndex = 0;
+  score = 0;
+  loadCurrentQuestion();
+}
+
+function loadCurrentQuestion() {
+  const q = activeQuiz[currentIndex];
+  document.getElementById('progressText').innerText = `Question ${currentIndex + 1} of ${activeQuiz.length}`;
+  document.getElementById('scoreText').innerText = `Score: ${score}`;
+  document.getElementById('targetWord').innerText = q.targetWord;
+  document.getElementById('promptBadge').innerText = `Cluster: ${q.clusterName}`;
+  document.getElementById('promptText').innerText = `Select ALL valid matching synonyms / associated terms (2 or more may apply):`;
+
+  const container = document.getElementById('optionsContainer');
+  container.innerHTML = '';
+
+  q.options.forEach((opt, idx) => {
+    const label = document.createElement('label');
+    label.className = 'option-label';
+    label.id = `opt-label-${idx}`;
+    label.innerHTML = `
+      <input type="checkbox" id="opt-${idx}" value="${idx}" onchange="toggleOptionSelect(${idx})">
+      <span class="option-text">${opt.text}</span>
+    `;
+    container.appendChild(label);
+  });
+
+  document.getElementById('explanationBox').style.display = 'none';
+  document.getElementById('btnSubmit').style.display = 'inline-block';
+  document.getElementById('btnNext').style.display = 'none';
+}
+
+function toggleOptionSelect(idx) {
+  const label = document.getElementById(`opt-label-${idx}`);
+  const input = document.getElementById(`opt-${idx}`);
+  if (input.checked) {
+    label.classList.add('selected');
+  } else {
+    label.classList.remove('selected');
+  }
+}
+
+function checkAnswer() {
+  const q = activeQuiz[currentIndex];
+  let allCorrect = true;
+
+  q.options.forEach((opt, idx) => {
+    const input = document.getElementById(`opt-${idx}`);
+    const label = document.getElementById(`opt-label-${idx}`);
+    input.disabled = true;
+
+    if (opt.correct) {
+      if (input.checked) {
+        label.classList.add('correct');
+      } else {
+        label.classList.add('missed');
+        allCorrect = false;
+      }
+    } else {
+      if (input.checked) {
+        label.classList.add('wrong');
+        allCorrect = false;
+      }
+    }
+  });
+
+  if (allCorrect) score++;
+
+  const expBox = document.getElementById('explanationBox');
+  document.getElementById('explanationContent').innerHTML = `
+    <div class="recall-row"><span class="recall-label">💡 Hindi Cue & Core Meaning:</span> <span>${q.hindiCue} — ${q.note}</span></div>
+    <div class="recall-row"><span class="recall-label tag-syn">✔ Full Synonym Cluster:</span> <span>${q.synonyms}</span></div>
+    <div class="recall-row"><span class="recall-label tag-ant">✖ Opposites / Antonyms:</span> <span>${q.antonyms}</span></div>
+  `;
+  expBox.style.display = 'block';
+
+  document.getElementById('btnSubmit').style.display = 'none';
+  document.getElementById('btnNext').style.display = 'inline-block';
+  document.getElementById('scoreText').innerText = `Score: ${score}`;
+}
+
+function nextQuestion() {
+  currentIndex++;
+  if (currentIndex < activeQuiz.length) {
+    loadCurrentQuestion();
+  } else {
+    showFinalResults();
+  }
+}
+
+function showFinalResults() {
+  const card = document.getElementById('quizCard');
+  card.innerHTML = `
+    <div style="text-align: center; padding: 24px 0;">
+      <h2 style="font-size: 2.2rem; margin-bottom: 12px; color: #fff;">Quiz Completed! 🎯</h2>
+      <p style="font-size: 1.2rem; color: var(--text-muted); margin-bottom: 28px;">Your Final Score: <strong style="color: var(--accent);">${score} / ${activeQuiz.length}</strong></p>
+      <button class="btn-submit" style="margin: 0 auto; display: block;" onclick="restartQuiz(); location.reload();">🔀 Reshuffle & Start New Round</button>
+    </div>
+  `;
+}
+
+// Initial Boot
+restartQuiz();
 </script>
 </body>
 </html>
