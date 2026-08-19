@@ -337,7 +337,7 @@ function showFinalResults() {
     <div style="text-align: center; padding: 24px 0;">
       <h2 style="font-size: 2.2rem; margin-bottom: 12px; color: #fff;">Quiz Completed! 🎯</h2>
       <p style="font-size: 1.2rem; color: var(--text-muted); margin-bottom: 28px;">Your Final Score: <strong style="color: var(--accent);">${score} / ${activeQuiz.length}</strong></p>
-      <button class="btn-submit" style="margin: 0 auto; display: block;" onclick="restartQuiz(); location.reload();">🔀 Reshuffle & Start New Round</button>
+      <button class="btn-submit" style="margin: 0 auto; display: block;" onclick="window.location.reload();">🔀 Reshuffle & Start New Round</button>
     </div>
   `;
 }
